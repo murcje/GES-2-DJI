@@ -375,7 +375,7 @@ def create_template_kml(ref_kml_content=None, status_callback=None):
         </Placemark>
     </Folder>
   </Document>
-</kml>"""
+</kml>
 
 # ges_json_to_dji_kmz (Handles merging now)
 def ges_json_to_dji_kmz(json_files_list, kmz_path, ref_kml_path=None, mission_settings=None, file_pois=None, status_callback=None):
@@ -439,7 +439,7 @@ class ConverterApp:
     def __init__(self, master):
         self.master = master
         master.title("GES JSON to DJI KMZ Converter")
-        master.geometry("650x700") # Adjusted height
+        master.geometry("650x780") # Adjusted height
 
         # Style
         style = ttk.Style()
