@@ -1,14 +1,14 @@
 # GES-2-DJI
 Convert Google Earth Studio camera animations to DJI waypointsfile
 
-Fly a camera around a location in GES and duplicate that flight in the real world using a DJI drone.
+Fly a camera around a location in GES and duplicate that flight in the real world using a DJI drone. Get info on total flight distance and estimated flight time.
 
 *This is all expiremental work and I take no responsibility if any damages or harm occur by using this script.*
 
-For planning of flight plans for drone survey or capturing imagery for photogrammetry or 3DGS it can be useful to visualize the flight path. 
+For planning of flight plans for drone survey or capturing imagery for photogrammetry or 3DGS it can be useful to pre-visualize the flight path. 
 With this script you can convert GES .json fils to a DJI waypoints file.
 
-At the moment, it is mainly intended for orbital flight plans. Usually you would fly multiple orbits at different altitudes. Conversion from eular rotation to DJI heading and pitch is not yet working so these need to be set manually before conversion. Instructions below.
+At the moment, it is mainly intended for orbital flight plans. Usually you would fly multiple orbits at different altitudes. Conversion from GES eular rotations to DJI heading and pitch is not yet working so these need to be set manually before conversion. Instructions below.
 
 SINGLE ORBIT WORKFLOW:
 
@@ -20,7 +20,12 @@ SINGLE ORBIT WORKFLOW:
 
     python.exe GES2DJI.py
     
-4   Add the .json file and adjust the fields in Mission Settings to your needs. - Altitude type is best set to WGS86. Desired Waypoints is used to thin the keyframes from GES. If not used, you will get many waypoints on your drone. Fixed Gimbal Pitch is for adjusting the gimbal vertical tilt. In GES 90 degrees is looking at the horizon and 0 is looking down. For DJI the horizon is at 0 degrees and looking down is -90 degrees. Adjust your desired pitch angle accordingly.
+4   Add the .json file and adjust the fields in Mission Settings to your needs. 
+- Altitude type is best set to WGS86.
+- Desired Waypoints is used to thin the keyframes from GES. If not used, you will get many waypoints on your drone.
+- Fixed Gimbal Pitch is for adjusting the gimbal vertical tilt.
+
+In GES, 90 degrees is looking at the horizon and 0 is looking down. For DJI, the horizon is at 0 degrees and looking down is -90 degrees. Adjust your desired pitch angle accordingly.
 
 5   Select the Heading Mode - For orbital flight around a poi, choose Point Towards Files's POI.
 
@@ -43,7 +48,12 @@ MULTIPLE ORBIT WORKFLOW:
 
     python.exe GES2DJI.py
     
-4   Add the .json files and adjust the fields in Mission Settings to your needs. - Altitude type is best set to WGS86. Desired Waypoints is used to thin the keyframes from GES. If not used, you will get many waypoints on your drone. Fixed Gimbal Pitch is for adjusting the gimbal vertical tilt. In GES 90 degrees is looking at the horizon and 0 is looking down. For DJI the horizon is at 0 degrees and looking down is -90 degrees. Adjust your desired pitch angle accordingly.
+4   Add the .json files and adjust the fields in Mission Settings to your needs. 
+- Altitude type is best set to WGS86.
+- Desired Waypoints is used to thin the keyframes from GES. If not used, you will get many waypoints on your drone.
+- Fixed Gimbal Pitch is for adjusting the gimbal vertical tilt.
+
+In GES, 90 degrees is looking at the horizon and 0 is looking down. For DJI, the horizon is at 0 degrees and looking down is -90 degrees. Adjust your desired pitch angle accordingly.
 
 5   Select the Heading Mode - For orbital flight around a poi, choose Point Towards Files's POI.
 
