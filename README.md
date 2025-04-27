@@ -20,7 +20,7 @@ SINGLE ORBIT WORKFLOW:
 
     python.exe GES2DJI.py
     
-4   Add the .json file and adjust the fields in Mission Settings to your needs. - Altitude type is best set to WGS86. Desired Waypoints is used to thin the keyfromes from GES. If not used, you will get many waypoints on your drone. Fixed Gimbal Pitch is for adjusting the gimbal vertical tilt. In GES 90 degrees is looking at the horizon and 0 is looking down. For DJI the horizon is at 0 degrees and looking down is -90 degrees. Adjust your desired pitch angle accordingly.
+4   Add the .json file and adjust the fields in Mission Settings to your needs. - Altitude type is best set to WGS86. Desired Waypoints is used to thin the keyframes from GES. If not used, you will get many waypoints on your drone. Fixed Gimbal Pitch is for adjusting the gimbal vertical tilt. In GES 90 degrees is looking at the horizon and 0 is looking down. For DJI the horizon is at 0 degrees and looking down is -90 degrees. Adjust your desired pitch angle accordingly.
 
 5   Select the Heading Mode - For orbital flight around a poi, choose Point Towards Files's POI.
 
@@ -43,7 +43,7 @@ MULTIPLE ORBIT WORKFLOW:
 
     python.exe GES2DJI.py
     
-4   Add the .json files and adjust the fields in Mission Settings to your needs. - Altitude type is best set to WGS86. Desired Waypoints is used to thin the keyfromes from GES. If not used, you will get many waypoints on your drone. Fixed Gimbal Pitch is for adjusting the gimbal vertical tilt. In GES 90 degrees is looking at the horizon and 0 is looking down. For DJI the horizon is at 0 degrees and looking down is -90 degrees. Adjust your desired pitch angle accordingly.
+4   Add the .json files and adjust the fields in Mission Settings to your needs. - Altitude type is best set to WGS86. Desired Waypoints is used to thin the keyframes from GES. If not used, you will get many waypoints on your drone. Fixed Gimbal Pitch is for adjusting the gimbal vertical tilt. In GES 90 degrees is looking at the horizon and 0 is looking down. For DJI the horizon is at 0 degrees and looking down is -90 degrees. Adjust your desired pitch angle accordingly.
 
 5   Select the Heading Mode - For orbital flight around a poi, choose Point Towards Files's POI.
 
@@ -65,4 +65,8 @@ MULTIPLE ORBIT WORKFLOW:
 Copying your waypointfile to the remote:
 
 Connect the remote and browse to android/data/dji.go.v5/files/waypoint. Here you will see your saved waypoint files. You will need to overwrite an existing one. Rename your converted .kmz file as an existing waypoint file on your remote and overwrite it (perhaps make a copy of the original if you want to save it).
+
+Load the waypoint file on you remote. The name will be the saame as the original waypointfile that you have overwritten. The amount of waypoints and length will be updated in the description as soon as you open and save the file on your remote. Check the flight path in the map mode of the remote to make sure all looks good before flying.
+
+*This is all expiremental work and I take no responsibility if any damages or harm occur by using this script.*
 
