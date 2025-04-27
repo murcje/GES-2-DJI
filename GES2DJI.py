@@ -439,7 +439,7 @@ class ConverterApp:
     def __init__(self, master):
         self.master = master
         master.title("GES JSON to DJI KMZ Converter")
-        master.geometry("650x780") # Adjusted height
+        master.geometry("650x800") # Adjusted height
 
         # Style
         style = ttk.Style()
