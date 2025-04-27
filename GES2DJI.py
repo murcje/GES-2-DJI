@@ -6,7 +6,7 @@ import math
 import argparse
 import datetime
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk, simpledialog, scrolledtext # Added scrolledtext
+from tkinter import filedialog, messagebox, ttk, scrolledtext # Added scrolledtext
 import sys
 
 # --- Try importing the map library ---
@@ -18,22 +18,22 @@ except ImportError:
 # --- Constants and Core Conversion Logic ---
 
 WPML_NAMESPACE = "http://www.dji.com/wpmz/1.0.2"
-DEFAULT_SPEED_MPS = 12.0
+DEFAULT_SPEED_MPS = 2.5
 DEFAULT_TRANSITIONAL_SPEED_MPS = 12.0
 DEFAULT_WAYPOINT_SPEED_MPS = 12.0
-DEFAULT_ALTITUDE_TYPE = 'WGS84'
+DEFAULT_ALTITUDE_TYPE = 'relativeToStartPoint'
 DEFAULT_HEADING_MODE_WPML = 'smoothTransition'
 DEFAULT_HEADING_PATH_MODE = 'followBadArc'
 DEFAULT_TURN_MODE_INTERMEDIATE = 'toPointAndPassWithContinuityCurvature'
 DEFAULT_TURN_MODE_LAST = 'toPointAndStopWithContinuityCurvature'
-DEFAULT_TURN_DAMPING_DIST = 0.0
+DEFAULT_TURN_DAMPING_DIST = 0.2
 DEFAULT_FINISH_ACTION = 'goHome'
 DEFAULT_RC_LOST_ACTION = 'goBack'
 DRONE_ENUM_VALUE = 68
 DRONE_SUB_ENUM_VALUE = 0
 
 MIN_GIMBAL_PITCH = -90.0
-MAX_GIMBAL_PITCH = 60.0
+MAX_GIMBAL_PITCH = 30.0
 DEFAULT_GIMBAL_PITCH = 0.0
 
 EARTH_RADIUS_METERS = 6371000
@@ -48,7 +48,7 @@ def thin_keyframes(keyframes_list, target_count, status_callback=None):
              status_callback(f"Invalid target count ({target_count}). No thinning applied.")
         elif status_callback:
              pass
-        return keyframes_list
+        return keyframes_list # Return original list (tagged or not)
 
     if status_callback: status_callback(f"Thinning {original_count} waypoints to approximately {target_count}...")
     thinned_list = []
@@ -61,6 +61,7 @@ def thin_keyframes(keyframes_list, target_count, status_callback=None):
     indices_to_keep.add(0)
     indices_to_keep.add(original_count - 1)
     sorted_indices = sorted(list(indices_to_keep))
+    # Return the selected items from the original list (preserving tags if present)
     thinned_list = [keyframes_list[idx] for idx in sorted_indices]
     actual_thinned_count = len(thinned_list)
     if status_callback: status_callback(f"Thinning complete: {original_count} -> {actual_thinned_count} waypoints.")
@@ -135,7 +136,7 @@ def load_and_tag_keyframes(json_files_list, status_callback=None):
             if status_callback: status_callback(f"Loaded {len(keyframes)} keyframes from {os.path.basename(json_path)}.")
 
         except FileNotFoundError: raise FileNotFoundError(f"Input file not found: {json_path}")
-        except json.JSONDecodeError as e: raise json.JSONDecodeError(f"Invalid JSON format in file: {json_path}", e.doc, e.pos) # Pass error details
+        except json.JSONDecodeError as e: raise json.JSONDecodeError(f"Invalid JSON format in file: {json_path}", e.doc, e.pos)
         except Exception as e: raise Exception(f"Error processing file {json_path}: {e}")
 
     if not all_tagged_keyframes:
@@ -273,7 +274,6 @@ def create_dji_wpml(tagged_thinned_keyframes, mission_settings, file_pois, statu
             wp_heading_mode = DEFAULT_HEADING_MODE_WPML # smoothTransition
             wp_heading_angle = manual_heading
             wp_heading_angle_enable = '1' if (i == 0 or i == num_keyframes - 1) else '0'
-        # Else (Follow Course): Keep defaults
 
         ET.SubElement(heading_param, f"{{{WPML_NAMESPACE}}}waypointHeadingMode").text = wp_heading_mode
         ET.SubElement(heading_param, f"{{{WPML_NAMESPACE}}}waypointHeadingAngle").text = f"{wp_heading_angle:.1f}"
@@ -382,6 +382,7 @@ def ges_json_to_dji_kmz(json_files_list, kmz_path, ref_kml_path=None, mission_se
     """Converts one or more GES JSON files to a DJI Mini 4 Pro KMZ file."""
     if mission_settings is None: mission_settings = {}
     if file_pois is None: file_pois = {}
+    thinned_tagged_keyframes = None # Initialize to handle potential errors before assignment
 
     try:
         # 1. Load and Merge Keyframes from potentially multiple files
@@ -423,7 +424,8 @@ def ges_json_to_dji_kmz(json_files_list, kmz_path, ref_kml_path=None, mission_se
             zf.writestr('wpmz/template.kml', kml_content.encode('utf-8'))
 
         if status_callback: status_callback(f"Successfully created KMZ: {os.path.basename(kmz_path)}")
-        return True
+        # Return the final keyframes for potential preview
+        return thinned_tagged_keyframes
 
     except Exception as e:
         if status_callback: status_callback(f"Error: {e}")
@@ -431,7 +433,7 @@ def ges_json_to_dji_kmz(json_files_list, kmz_path, ref_kml_path=None, mission_se
         print(f"An unexpected error occurred: {e}")
         print("Traceback:")
         traceback.print_exc()
-        return False
+        return None # Return None on failure
 
 
 # --- GUI Application Class ---
@@ -439,7 +441,7 @@ class ConverterApp:
     def __init__(self, master):
         self.master = master
         master.title("GES JSON to DJI KMZ Converter")
-        master.geometry("650x800") # Adjusted height
+        master.geometry("650x700") # Adjusted height
 
         # Style
         style = ttk.Style()
@@ -459,12 +461,14 @@ class ConverterApp:
         self.fixed_pitch_var = tk.StringVar()
         # Heading Variables
         self.heading_mode_var = tk.StringVar(value="Follow Course")
-        self.selected_file_poi_lat_var = tk.StringVar() # For the POI entry fields
+        self.selected_file_poi_lat_var = tk.StringVar()
         self.selected_file_poi_lon_var = tk.StringVar()
         self.manual_heading_var = tk.StringVar()
         self.status_var = tk.StringVar(value="Ready.")
         # Preview info variables
         self.preview_info_var = tk.StringVar(value="")
+        # Variable to store the last successfully converted path data
+        self.last_converted_keyframes = None
 
         # Store map widget and markers if preview window is open
         self.map_preview_window = None
@@ -502,7 +506,7 @@ class ConverterApp:
 
         self.file_listbox = tk.Listbox(listbox_frame, height=4, width=70, exportselection=False)
         self.file_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        self.file_listbox.bind("<<ListboxSelect>>", self.on_file_select) # Bind selection change
+        self.file_listbox.bind("<<ListboxSelect>>", self.on_file_select)
 
         listbox_scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=self.file_listbox.yview)
         listbox_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -542,7 +546,6 @@ class ConverterApp:
 
 
         # --- General Settings Widgets ---
-        # (Same layout as before, just placed in general_settings_frame)
         ttk.Label(general_settings_frame, text="Speed (m/s):").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
         ttk.Entry(general_settings_frame, textvariable=self.speed_var, width=10).grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
         ttk.Label(general_settings_frame, text="Altitude Type:").grid(row=0, column=2, padx=15, pady=5, sticky=tk.W)
@@ -561,13 +564,13 @@ class ConverterApp:
 
 
         # --- Heading Control Widgets ---
-        # Modified heading options
+        # Updated heading options
         heading_options = ["Follow Course", "Point Towards File's POI", "Manual Fixed Heading"]
         ttk.Label(heading_frame, text="Heading Mode:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
         heading_menu = ttk.OptionMenu(heading_frame, self.heading_mode_var, heading_options[0], *heading_options, command=self.toggle_heading_fields)
         heading_menu.grid(row=0, column=1, columnspan=3, padx=5, pady=5, sticky=tk.W+tk.E)
 
-        # Manual Heading Field (Now in heading_frame)
+        # Manual Heading Field
         self.manual_heading_label = ttk.Label(heading_frame, text="Manual Heading Angle:")
         self.manual_heading_entry = ttk.Entry(heading_frame, textvariable=self.manual_heading_var, width=10)
         self.manual_heading_unit_label = ttk.Label(heading_frame, text="° (-180 to 180)")
@@ -584,12 +587,18 @@ class ConverterApp:
         buttons_subframe = ttk.Frame(action_frame)
         buttons_subframe.pack(pady=10)
 
-        # Preview Button (Now previews selected file)
+        # Preview Button
         self.preview_button = ttk.Button(buttons_subframe, text="Preview Selected File & Set POI", command=self.preview_path, state=tk.DISABLED)
         self.preview_button.pack(side=tk.LEFT, padx=5)
         if tkintermapview is None:
             self.preview_button.config(state=tk.DISABLED)
             self.status_var.set("Error: tkintermapview not found. Install it (`pip install tkintermapview pillow`).")
+
+        # Show Result Button (New)
+        self.show_result_button = ttk.Button(buttons_subframe, text="Show Result on Map", command=self.show_result_on_map, state=tk.DISABLED)
+        self.show_result_button.pack(side=tk.LEFT, padx=5)
+        if tkintermapview is None:
+            self.show_result_button.config(state=tk.DISABLED)
 
         # Convert Button
         self.convert_button = ttk.Button(buttons_subframe, text="Convert & Merge to KMZ", command=self.convert)
@@ -600,21 +609,15 @@ class ConverterApp:
 
     def toggle_heading_fields(self, selected_mode):
         """Enable/disable specific heading fields based on selected mode."""
-        # Disable all first
-        # self.center_lat_label.config(state=tk.DISABLED) # Removed global center fields
-        # self.center_lat_entry.config(state=tk.DISABLED)
-        # self.center_lon_label.config(state=tk.DISABLED)
-        # self.center_lon_entry.config(state=tk.DISABLED)
         self.manual_heading_label.config(state=tk.DISABLED)
         self.manual_heading_entry.config(state=tk.DISABLED)
         self.manual_heading_unit_label.config(state=tk.DISABLED)
+        # POI fields are handled by file selection, not heading mode directly
 
-        # Enable based on selection
         if selected_mode == "Manual Fixed Heading":
             self.manual_heading_label.config(state=tk.NORMAL)
             self.manual_heading_entry.config(state=tk.NORMAL)
             self.manual_heading_unit_label.config(state=tk.NORMAL)
-        # "Point Towards File's POI" fields are managed separately by file selection
 
     # --- File Management Functions ---
     def add_files(self):
@@ -626,13 +629,12 @@ class ConverterApp:
         added_count = 0
         if filenames_tuple:
             for fname in filenames_tuple:
-                if fname not in self.json_files_list: # Avoid duplicates
+                if fname not in self.json_files_list:
                     self.json_files_list.append(fname)
                     self.file_listbox.insert(tk.END, os.path.basename(fname))
                     added_count += 1
             if added_count > 0:
                 self.update_status(f"Added {added_count} file(s). Total: {len(self.json_files_list)}")
-                # Auto-suggest output filename if not set
                 if not self.kmz_file_var.get() and self.json_files_list:
                     base, _ = os.path.splitext(self.json_files_list[0])
                     self.kmz_file_var.set(base + "_merged.kmz")
@@ -647,17 +649,14 @@ class ConverterApp:
             messagebox.showwarning("Warning", "Please select a file from the list to remove.")
             return
 
-        # Remove from listbox (iterate backwards to avoid index issues)
         for index in reversed(selected_indices):
-            filepath = self.json_files_list.pop(index) # Remove from internal list
+            filepath = self.json_files_list.pop(index)
             self.file_listbox.delete(index)
-            # Remove associated POI if it exists
             if filepath in self.file_pois:
                 del self.file_pois[filepath]
                 print(f"Removed POI for {os.path.basename(filepath)}")
 
         self.update_status(f"Removed file(s). Remaining: {len(self.json_files_list)}")
-        # Clear POI fields if nothing is selected anymore
         if not self.file_listbox.curselection():
              self.selected_file_poi_lat_var.set("")
              self.selected_file_poi_lon_var.set("")
@@ -675,15 +674,13 @@ class ConverterApp:
             self.preview_button.config(state=tk.DISABLED)
             return
 
-        selected_index = selected_indices[0] # Only handle single selection for POI
+        selected_index = selected_indices[0]
         selected_filepath = self.json_files_list[selected_index]
 
-        # Enable buttons for selected file
         self.set_poi_button.config(state=tk.NORMAL)
         if tkintermapview is not None:
             self.preview_button.config(state=tk.NORMAL)
 
-        # Load and display existing POI for this file, if any
         poi_coords = self.file_pois.get(selected_filepath)
         if poi_coords:
             self.selected_file_poi_lat_var.set(f"{poi_coords[0]:.8f}")
@@ -708,7 +705,6 @@ class ConverterApp:
             lat_str = self.selected_file_poi_lat_var.get()
             lon_str = self.selected_file_poi_lon_var.get()
             if not lat_str or not lon_str:
-                # Clear POI if fields are empty
                 if selected_filepath in self.file_pois:
                     del self.file_pois[selected_filepath]
                 messagebox.showinfo("POI Cleared", f"POI cleared for {os.path.basename(selected_filepath)}")
@@ -720,7 +716,6 @@ class ConverterApp:
             if not (-90 <= lat <= 90 and -180 <= lon <= 180):
                 raise ValueError("Invalid Latitude (-90 to 90) or Longitude (-180 to 180).")
 
-            # Store the POI
             self.file_pois[selected_filepath] = (lat, lon)
             print(f"Stored POI for {os.path.basename(selected_filepath)}: {self.file_pois[selected_filepath]}")
             self.update_status(f"POI set for {os.path.basename(selected_filepath)}")
@@ -761,7 +756,6 @@ class ConverterApp:
 
     def map_clicked(self, coords):
         """Callback function when the map preview is clicked."""
-        # Only update POI fields if a file is selected in the main list
         selected_indices = self.file_listbox.curselection()
         if not selected_indices:
             self.update_status("Select a file in the main window first to set its POI.")
@@ -771,24 +765,131 @@ class ConverterApp:
         print(f"Map clicked at: Lat={lat:.6f}, Lon={lon:.6f}")
         self.update_status(f"Map Clicked: Lat={lat:.6f}, Lon={lon:.6f}. Use 'Set POI' button to save.")
 
-        # Update the POI entry fields (ready to be saved by button)
         self.selected_file_poi_lat_var.set(f"{lat:.8f}")
         self.selected_file_poi_lon_var.set(f"{lon:.8f}")
 
-        # Add/update a marker on the map for the potential POI
         if self.map_widget:
              if self.poi_marker:
                  self.poi_marker.set_position(lat, lon)
              else:
                  self.poi_marker = self.map_widget.set_marker(lat, lon, text="POI", marker_color_circle="red", marker_color_outside="red")
 
+    def _update_map_display(self, keyframes_to_display, title_suffix=""):
+        """Helper function to update or create the map preview window."""
+        if not tkintermapview: return # Library not available
+
+        if not keyframes_to_display:
+             messagebox.showwarning("Preview Warning", "No waypoints to display.")
+             return
+
+        # --- Calculate Distance and Time ---
+        total_distance_meters = 0
+        last_lat, last_lon = None, None
+        calculated_duration_seconds = None
+        speed_mps_val = self.speed_var.get() # Use current speed setting
+        if speed_mps_val <= 0: speed_mps_val = 0 # Avoid division error
+
+        for kf_data in keyframes_to_display: # Iterate through potentially tagged or untagged data
+            # Handle both tagged (tuple) and untagged (dict) keyframes
+            kf = kf_data[0] if isinstance(kf_data, tuple) else kf_data
+            try:
+                lat = float(kf['coordinate']['latitude'])
+                lon = float(kf['coordinate']['longitude'])
+                if last_lat is not None:
+                    segment_distance = calculate_distance(last_lat, last_lon, lat, lon)
+                    total_distance_meters += segment_distance
+                last_lat, last_lon = lat, lon
+            except (KeyError, ValueError, TypeError): continue
+
+        if speed_mps_val > 0: estimated_time_seconds = total_distance_meters / speed_mps_val
+        distance_km = total_distance_meters / 1000.0
+        time_str = format_time(estimated_time_seconds)
+        info_text = f"{title_suffix} Length: {distance_km:.3f} km | Est. Time: {time_str} (at {speed_mps_val:.1f} m/s)"
+        # ------------------------------------
+
+        # --- Create or Update Map Window ---
+        preview_window_height = 750
+        map_height = 400
+        text_height = 200 # Keep text widget space
+
+        if self.map_preview_window is None or not self.map_preview_window.winfo_exists():
+            self.map_preview_window = tk.Toplevel(self.master)
+            self.map_preview_window.geometry(f"800x{preview_window_height}")
+
+            top_frame = ttk.Frame(self.map_preview_window)
+            top_frame.pack(pady=5, fill=tk.X, padx=10)
+            ttk.Label(top_frame, text="Click map to set POI for selected file.").pack(side=tk.LEFT)
+            self.preview_info_label = ttk.Label(top_frame, textvariable=self.preview_info_var)
+            self.preview_info_label.pack(side=tk.RIGHT)
+
+            self.map_widget = tkintermapview.TkinterMapView(self.map_preview_window, width=800, height=map_height, corner_radius=0)
+            self.map_widget.pack(fill=tk.X)
+            self.map_widget.add_left_click_map_command(self.map_clicked)
+
+            ttk.Label(self.map_preview_window, text="Camera Frames Data (Selected File Only):").pack(pady=(5,0))
+            self.json_text_widget = scrolledtext.ScrolledText(self.map_preview_window, height=int(text_height/15), wrap=tk.WORD, state=tk.DISABLED)
+            self.json_text_widget.pack(pady=5, padx=10, fill=tk.BOTH, expand=True)
+
+            self.map_markers = []
+            self.map_path = None
+            self.poi_marker = None
+        else:
+            self.map_preview_window.lift()
+            if self.map_widget:
+                for marker in self.map_markers: marker.delete()
+                self.map_markers = []
+                if self.map_path: self.map_path.delete(); self.map_path = None
+                # Don't delete POI marker here unless explicitly clearing
+
+        # Update window title and info label
+        self.map_preview_window.title(f"Preview: {title_suffix}")
+        self.preview_info_var.set(info_text)
+
+        # --- Plot Waypoints ---
+        marker_positions = []
+        path_positions = []
+        min_lat, max_lat = 90.0, -90.0
+        min_lon, max_lon = 180.0, -180.0
+
+        for i, kf_item in enumerate(keyframes_to_display):
+            kf = kf_item[0] if isinstance(kf_item, tuple) else kf_item # Handle tagged/untagged
+            try:
+                lat = float(kf['coordinate']['latitude'])
+                lon = float(kf['coordinate']['longitude'])
+                marker_positions.append((lat, lon))
+                path_positions.append((lat, lon))
+                min_lat, max_lat = min(min_lat, lat), max(max_lat, lat)
+                min_lon, max_lon = min(min_lon, lon), max(max_lon, lon)
+                marker = self.map_widget.set_marker(lat, lon, text=str(i))
+                self.map_markers.append(marker)
+            except (KeyError, ValueError, TypeError): continue
+
+        # Draw path
+        if len(path_positions) > 1:
+            self.map_path = self.map_widget.set_path(path_positions, width=2)
+
+        # Fit map to markers
+        if marker_positions:
+             self.map_widget.fit_bounding_box((max_lat, min_lon), (min_lat, max_lon))
+        else:
+             self.map_widget.set_position(52.37, 4.89); self.map_widget.set_zoom(10)
+
+        # Display POI marker if relevant (only for single file preview)
+        selected_indices = self.file_listbox.curselection()
+        if len(selected_indices) == 1 and title_suffix.startswith("Selected File"):
+            selected_filepath = self.json_files_list[selected_indices[0]]
+            current_poi = self.file_pois.get(selected_filepath)
+            if current_poi:
+                if self.poi_marker: self.poi_marker.set_position(current_poi[0], current_poi[1])
+                else: self.poi_marker = self.map_widget.set_marker(current_poi[0], current_poi[1], text="POI", marker_color_circle="red", marker_color_outside="red")
+            elif self.poi_marker: # Remove marker if no POI for this file
+                self.poi_marker.delete(); self.poi_marker = None
+        elif self.poi_marker: # Remove POI marker when showing combined result
+             self.poi_marker.delete(); self.poi_marker = None
+
+
     def preview_path(self):
         """Loads JSON for the SELECTED file, thins, calculates info, and displays."""
-        if tkintermapview is None:
-            messagebox.showerror("Error", "Map preview requires 'tkintermapview'.\nPlease install it using:\n pip install tkintermapview pillow")
-            return
-
-        # Get selected file path
         selected_indices = self.file_listbox.curselection()
         if not selected_indices:
             messagebox.showerror("Error", "Please select a JSON file from the list to preview.")
@@ -796,16 +897,12 @@ class ConverterApp:
         selected_index = selected_indices[0]
         json_path = self.json_files_list[selected_index]
 
-        # Get desired waypoints and speed
         desired_waypoints_val = None
-        speed_mps_val = DEFAULT_SPEED_MPS
         try:
             desired_waypoints_str = self.desired_waypoints_var.get()
             if desired_waypoints_str:
                 desired_waypoints_val = int(desired_waypoints_str)
                 if desired_waypoints_val <= 0: raise ValueError("Desired Waypoints must be positive.")
-            speed_mps_val = self.speed_var.get()
-            if speed_mps_val <= 0: speed_mps_val = 0 # Avoid division error
         except (ValueError, tk.TclError) as e:
              messagebox.showerror("Error", f"Invalid numeric setting for preview:\n{e}")
              return
@@ -823,131 +920,24 @@ class ConverterApp:
             thinned_keyframes = thin_keyframes(camera_keyframes, desired_waypoints_val, self.update_status)
             if not thinned_keyframes: raise ValueError("No waypoints remaining after thinning.")
 
-            # --- Calculate Distance and Time for THIS file ---
-            total_distance_meters = 0
-            last_lat, last_lon = None, None
-            for i, kf in enumerate(thinned_keyframes):
+            # Update the map display with the selected file's data
+            self._update_map_display(thinned_keyframes, title_suffix=f"Selected File: {os.path.basename(json_path)}")
+
+            # Also display JSON content
+            if self.map_preview_window and self.map_preview_window.winfo_exists():
                 try:
-                    lat = float(kf['coordinate']['latitude'])
-                    lon = float(kf['coordinate']['longitude'])
-                    if last_lat is not None:
-                        segment_distance = calculate_distance(last_lat, last_lon, lat, lon)
-                        total_distance_meters += segment_distance
-                    last_lat, last_lon = lat, lon
-                except (KeyError, ValueError, TypeError): continue
-
-            estimated_time_seconds = None
-            if speed_mps_val > 0: estimated_time_seconds = total_distance_meters / speed_mps_val
-            distance_km = total_distance_meters / 1000.0
-            time_str = format_time(estimated_time_seconds)
-            info_text = f"Selected File: {distance_km:.3f} km | Est. Time: {time_str} (at {speed_mps_val:.1f} m/s)"
-            # ------------------------------------
-
-            self.update_status("Preparing map preview...")
-
-            # --- Create or Update Map Window ---
-            # Increased height slightly for the text widget
-            preview_window_height = 750
-            map_height = 400
-            text_height = 200
-
-            if self.map_preview_window is None or not self.map_preview_window.winfo_exists():
-                self.map_preview_window = tk.Toplevel(self.master)
-                self.map_preview_window.title(f"Preview & POI: {os.path.basename(json_path)}")
-                self.map_preview_window.geometry(f"800x{preview_window_height}") # Adjusted size
-
-                # Top frame for instructions and info
-                top_frame = ttk.Frame(self.map_preview_window)
-                top_frame.pack(pady=5, fill=tk.X, padx=10)
-                ttk.Label(top_frame, text="Click map to set POI for this file.").pack(side=tk.LEFT)
-                self.preview_info_label = ttk.Label(top_frame, textvariable=self.preview_info_var)
-                self.preview_info_label.pack(side=tk.RIGHT)
-
-                # Map widget
-                self.map_widget = tkintermapview.TkinterMapView(self.map_preview_window, width=800, height=map_height, corner_radius=0)
-                self.map_widget.pack(fill=tk.X)
-                self.map_widget.add_left_click_map_command(self.map_clicked)
-
-                # Text widget for JSON data
-                ttk.Label(self.map_preview_window, text="Camera Frames Data:").pack(pady=(5,0))
-                self.json_text_widget = scrolledtext.ScrolledText(self.map_preview_window, height=int(text_height/15), wrap=tk.WORD, state=tk.DISABLED) # Approx height based on font size
-                self.json_text_widget.pack(pady=5, padx=10, fill=tk.BOTH, expand=True)
-
-                self.map_markers = []
-                self.map_path = None
-                self.poi_marker = None # Reset POI marker when window is created
-            else:
-                self.map_preview_window.lift()
-                self.map_preview_window.title(f"Preview & POI: {os.path.basename(json_path)}") # Update title
-                if self.map_widget:
-                    for marker in self.map_markers: marker.delete()
-                    self.map_markers = []
-                    if self.map_path: self.map_path.delete(); self.map_path = None
-                    # Don't delete POI marker here, allow it to persist if user previews another file
-
-            # --- Update Preview Info Label ---
-            self.preview_info_var.set(info_text)
-            # --------------------------------
-
-            # --- Display JSON Data ---
-            try:
-                 # Extract only cameraFrames for display
-                 frames_to_display = ges_project_data.get('cameraFrames', [])
-                 formatted_json = json.dumps(frames_to_display, indent=2)
-                 self.json_text_widget.config(state=tk.NORMAL) # Enable writing
-                 self.json_text_widget.delete('1.0', tk.END)    # Clear previous content
-                 self.json_text_widget.insert('1.0', formatted_json)
-                 self.json_text_widget.config(state=tk.DISABLED) # Disable editing
-            except Exception as json_e:
-                 print(f"Error formatting/displaying JSON: {json_e}")
-                 self.json_text_widget.config(state=tk.NORMAL)
-                 self.json_text_widget.delete('1.0', tk.END)
-                 self.json_text_widget.insert('1.0', f"Error displaying JSON data:\n{json_e}")
-                 self.json_text_widget.config(state=tk.DISABLED)
-            # -------------------------
-
-
-            # --- Plot Waypoints ---
-            marker_positions = []
-            path_positions = []
-            min_lat, max_lat = 90.0, -90.0
-            min_lon, max_lon = 180.0, -180.0
-
-            for i, kf in enumerate(thinned_keyframes):
-                try:
-                    lat = float(kf['coordinate']['latitude'])
-                    lon = float(kf['coordinate']['longitude'])
-                    marker_positions.append((lat, lon))
-                    path_positions.append((lat, lon))
-                    min_lat, max_lat = min(min_lat, lat), max(max_lat, lat)
-                    min_lon, max_lon = min(min_lon, lon), max(max_lon, lon)
-                    marker = self.map_widget.set_marker(lat, lon, text=str(i))
-                    self.map_markers.append(marker)
-                except (KeyError, ValueError, TypeError): continue
-
-            # Draw path
-            if len(path_positions) > 1:
-                self.map_path = self.map_widget.set_path(path_positions, width=2)
-
-            # Fit map to markers
-            if marker_positions:
-                 self.map_widget.fit_bounding_box((max_lat, min_lon), (min_lat, max_lon))
-            else:
-                 self.map_widget.set_position(52.37, 4.89); self.map_widget.set_zoom(10)
-
-            # Add marker for existing POI of this file
-            current_poi = self.file_pois.get(json_path)
-            if current_poi:
-                 if self.poi_marker:
-                     self.poi_marker.set_position(current_poi[0], current_poi[1])
-                 else:
-                     self.poi_marker = self.map_widget.set_marker(current_poi[0], current_poi[1], text="POI", marker_color_circle="red", marker_color_outside="red")
-            elif self.poi_marker: # If no POI for this file, remove marker from previous preview
-                 self.poi_marker.delete()
-                 self.poi_marker = None
-
-
-            self.update_status(f"Preview ready for {os.path.basename(json_path)}. {info_text}")
+                    frames_to_display = ges_project_data.get('cameraFrames', [])
+                    formatted_json = json.dumps(frames_to_display, indent=2)
+                    self.json_text_widget.config(state=tk.NORMAL)
+                    self.json_text_widget.delete('1.0', tk.END)
+                    self.json_text_widget.insert('1.0', formatted_json)
+                    self.json_text_widget.config(state=tk.DISABLED)
+                except Exception as json_e:
+                    print(f"Error formatting/displaying JSON: {json_e}")
+                    self.json_text_widget.config(state=tk.NORMAL)
+                    self.json_text_widget.delete('1.0', tk.END)
+                    self.json_text_widget.insert('1.0', f"Error displaying JSON data:\n{json_e}")
+                    self.json_text_widget.config(state=tk.DISABLED)
 
         except Exception as e:
             self.update_status(f"Preview Error: {e}")
@@ -957,6 +947,31 @@ class ConverterApp:
             self.map_preview_window = None
             self.map_widget = None
 
+    def show_result_on_map(self):
+        """Displays the last successfully converted path on the map."""
+        if tkintermapview is None:
+            messagebox.showerror("Error", "Map preview requires 'tkintermapview'.")
+            return
+        if self.last_converted_keyframes is None:
+            messagebox.showinfo("Info", "No converted path available. Please run 'Convert & Merge to KMZ' first.")
+            return
+
+        self.update_status("Preparing map for converted result...")
+        try:
+             # Update the map display with the stored final keyframes
+             self._update_map_display(self.last_converted_keyframes, title_suffix="Converted Result")
+             # Clear the JSON text widget as it doesn't apply to the merged result
+             if self.map_preview_window and self.map_preview_window.winfo_exists():
+                 self.json_text_widget.config(state=tk.NORMAL)
+                 self.json_text_widget.delete('1.0', tk.END)
+                 self.json_text_widget.insert('1.0', "(JSON view not applicable for merged result)")
+                 self.json_text_widget.config(state=tk.DISABLED)
+
+             self.update_status(f"Showing converted path ({len(self.last_converted_keyframes)} waypoints).")
+        except Exception as e:
+             self.update_status(f"Result Preview Error: {e}")
+             messagebox.showerror("Result Preview Error", f"Could not display result:\n{e}")
+
 
     def convert(self):
         """Handles the conversion process after validation."""
@@ -964,6 +979,10 @@ class ConverterApp:
         json_files = self.json_files_list
         kmz_path = self.kmz_file_var.get()
         ref_kml_path = self.ref_kml_file_var.get() or None
+
+        # Reset last converted path
+        self.last_converted_keyframes = None
+        self.show_result_button.config(state=tk.DISABLED)
 
         # --- Validate Inputs ---
         if not json_files:
@@ -979,8 +998,6 @@ class ConverterApp:
         # Validate numeric settings
         desired_waypoints_val = None
         fixed_pitch_val = None
-        # center_lat_val = None # Removed global center
-        # center_lon_val = None
         manual_heading_val = None
         heading_mode_val = self.heading_mode_var.get()
 
@@ -1033,6 +1050,7 @@ class ConverterApp:
             'desired_waypoints': desired_waypoints_val,
             'fixed_pitch': fixed_pitch_val,
             'heading_mode': heading_mode_val,
+            # Pass the whole POI dictionary, the conversion function will use it
             # 'center_lat': center_lat_val, # Removed
             # 'center_lon': center_lon_val, # Removed
             'manual_heading': manual_heading_val,
@@ -1041,11 +1059,13 @@ class ConverterApp:
         }
 
         self.convert_button.config(state=tk.DISABLED)
-        self.preview_button.config(state=tk.DISABLED)
+        self.preview_button.config(state=tk.DISABLED) # Disable preview during conversion
+        self.show_result_button.config(state=tk.DISABLED) # Disable show result during conversion
         self.update_status("Starting conversion...")
 
         # --- Run Conversion (pass the list of files and the POI dictionary) ---
-        success = ges_json_to_dji_kmz(
+        # Store the returned keyframes (or None if failed)
+        final_keyframes = ges_json_to_dji_kmz(
             json_files, # Pass the list of selected JSON file paths
             kmz_path,
             ref_kml_path,
@@ -1055,14 +1075,20 @@ class ConverterApp:
         )
 
         self.convert_button.config(state=tk.NORMAL)
-        if tkintermapview is not None and self.file_listbox.curselection(): # Re-enable preview only if library exists AND a file is selected
+        # Re-enable preview button only if a file is still selected
+        if tkintermapview is not None and self.file_listbox.curselection():
             self.preview_button.config(state=tk.NORMAL)
 
 
-        if success:
+        if final_keyframes is not None: # Check if conversion succeeded (returned keyframes)
+            self.last_converted_keyframes = final_keyframes # Store for showing result
+            if tkintermapview is not None:
+                self.show_result_button.config(state=tk.NORMAL) # Enable show result button
             messagebox.showinfo("Success", f"KMZ file created successfully!\n\nOutput: {kmz_path}")
-            self.update_status("Conversion successful.")
+            self.update_status("Conversion successful. Click 'Show Result on Map' to view.")
         else:
+            self.last_converted_keyframes = None # Ensure it's None on failure
+            self.show_result_button.config(state=tk.DISABLED) # Keep disabled on failure
             messagebox.showerror("Error", "Conversion failed. Check status bar/console for details.")
             # Status bar already shows error
 
@@ -1072,9 +1098,9 @@ if __name__ == "__main__":
     # Check for library before starting GUI
     if tkintermapview is None:
         root = tk.Tk()
-        root.withdraw() # Hide the main empty window
+        root.withdraw()
         messagebox.showerror("Dependency Error", "Required library 'tkintermapview' not found.\nPlease install it using:\npip install tkintermapview pillow")
-        sys.exit(1) # Exit if library is missing
+        sys.exit(1)
 
     root = tk.Tk()
     app = ConverterApp(root)
