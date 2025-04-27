@@ -1,7 +1,8 @@
 # GES-2-DJI
 Convert Google Earth Studio camera animations to DJI waypointsfile
 
-![image](https://github.com/user-attachments/assets/943288ed-c622-40e7-8ebd-7f29a4f3ed34)
+![image](https://github.com/user-attachments/assets/25c9b932-306c-4b26-8b8a-a3320ea98716)
+
 
 
 Fly a camera around a location in GES and duplicate that flight in the real world using a DJI drone. Get info on total flight distance and estimated flight time.
@@ -49,6 +50,7 @@ In GES, 90 degrees is looking at the horizon and 0 is looking down. For DJI, the
 
 
 MULTIPLE ORBIT WORKFLOW:
+![image](https://github.com/user-attachments/assets/9219e22d-3468-4fa7-9822-606eceb2e21f)
 
 1   Plan each of your flights seperately in GES. First set your field of view to correspond with that of your drone (90 for the DJI Mini 4 Pro). Set keyframes or start from a new Orbit project.
 
