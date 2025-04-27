@@ -1,11 +1,18 @@
 # GES-2-DJI
 Convert Google Earth Studio camera animations to DJI waypointsfile
 
+![image](https://github.com/user-attachments/assets/943288ed-c622-40e7-8ebd-7f29a4f3ed34)
+
+
 Fly a camera around a location in GES and duplicate that flight in the real world using a DJI drone. Get info on total flight distance and estimated flight time.
+
+![image](https://github.com/user-attachments/assets/199b1201-45ea-4bf7-8ea6-6b2ae2fb9a01)
+
 
 *This is all expiremental work and I take no responsibility if any damages or harm occur by using this script.*
 
-For planning of flight plans for drone survey or capturing imagery for photogrammetry or 3DGS it can be useful to pre-visualize the flight path. 
+When planning drone flights for drone surveys, or for capturing photogrammetry or 3DGS imagery, it can be useful to pre-visualize the flight path. 
+
 With this script you can convert GES .json fils to a DJI waypoints file.
 
 At the moment, it is mainly intended for orbital flight plans. Usually you would fly multiple orbits at different altitudes. Conversion from GES eular rotations to DJI heading and pitch is not yet working so these need to be set manually before conversion. Instructions below.
@@ -30,6 +37,9 @@ In GES, 90 degrees is looking at the horizon and 0 is looking down. For DJI, the
 5   Select the Heading Mode - For orbital flight around a poi, choose Point Towards Files's POI.
 
 6   Select your file in the list and press Preview Selected File & Set POI
+
+![image](https://github.com/user-attachments/assets/2af97a0a-1cfa-434d-b467-de1f253039b9)
+
 
 7   Set the desired POI location on the map (usually in the center of the orbit) and close the map window.
 
