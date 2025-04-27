@@ -74,7 +74,11 @@ In GES, 90 degrees is looking at the horizon and 0 is looking down. For DJI, the
 
 Copying your waypointfile to the remote:
 
-Connect the remote to a computer and browse to android/data/dji.go.v5/files/waypoint. Here you will see your saved waypoint files. You will need to overwrite an existing one. Rename your converted .kmz file as an existing waypoint file on your remote and overwrite it (perhaps make a copy of the original if you want to save it).
+Connect the remote to a computer and browse to: 
+
+android/data/dji.go.v5/files/waypoint. 
+
+Here you will see your saved waypoint files. You will need to overwrite an existing one. Rename your converted .kmz file as an existing waypoint file on your remote and overwrite it (perhaps make a copy of the original if you want to save it).
 
 Load the waypoint file on you remote. The name will be the saame as the original waypointfile that you have overwritten. The amount of waypoints and length will be updated in the description as soon as you open and save the file on your remote. Check the flight path in the map mode of the remote to make sure all looks good before flying.
 
