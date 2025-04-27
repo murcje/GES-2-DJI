@@ -72,7 +72,7 @@ In GES, 90 degrees is looking at the horizon and 0 is looking down. For DJI, the
 12  Press Convert & Merge to KMZ to start the process.
 
 
-Copying your waypointfile to the remote:
+COPYING YOUR CONVERTED .KMZ FILE TO THE REMOTE
 
 Connect the remote to a computer and browse to: 
 
