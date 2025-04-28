@@ -12,7 +12,7 @@ Fly a camera around a location in GES and duplicate that flight in the real worl
 
 *This is all expiremental work and I take no responsibility if any damages or harm occur by using this script.*
 
-When planning drone flights for drone surveys, or for capturing photogrammetry or 3DGS imagery, it can be useful to pre-visualize the flight path. 
+When planning drone flights for drone surveys, or for capturing photogrammetry or 3D Gaussian Splatting imagery, it can be useful to pre-visualize the flight path. 
 
 With this script you can convert GES .json fils to a DJI waypoints file.
 
